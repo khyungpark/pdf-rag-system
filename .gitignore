@@ -1,0 +1,24 @@
+# 환경 변수 (API 키 보호)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+
+# ChromaDB
+chroma_db/
+
+# 임시 파일
+*.log
+.DS_Store
+
+# 백업 파일
+*.tar.gz
+
+# PDF 파일 (용량이 크므로 제외)
+*.pdf
+pdfs/*.pdf
+
+# pip 설치 오류 파일
+=*

@@ -1,0 +1,7 @@
+# RAG 시스템 필수 패키지
+pymupdf>=1.24.0          # PDF 텍스트/이미지 추출
+pdfplumber>=0.10.0       # 표(Table) 추출
+chromadb>=0.5.0          # 벡터 데이터베이스
+sentence-transformers>=3.0.0  # 임베딩 모델
+streamlit>=1.30.0        # 웹 대시보드
+anthropic>=0.30.0        # Claude Vision API
