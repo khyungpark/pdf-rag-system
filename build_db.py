@@ -16,6 +16,8 @@ RAG 데이터베이스 자동 구축 스크립트
 import os
 import sys
 import argparse
+import tarfile
+import shutil
 from datetime import datetime
 
 # ============================================================
@@ -27,6 +29,66 @@ EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
 BATCH_SIZE = 5000
+BACKUP_DIR = "./backups"
+MAX_BACKUPS = 5  # 최대 백업 유지 개수
+
+
+def backup_database(db_path: str = DB_PATH, backup_dir: str = BACKUP_DIR) -> str | None:
+    """
+    DB 변경 전 자동 백업 생성
+
+    Returns:
+        str: 백업 파일 경로 (성공 시)
+        None: 백업 실패 또는 DB가 없는 경우
+    """
+    if not os.path.exists(db_path):
+        print("   ℹ️ 기존 DB가 없어 백업 생략")
+        return None
+
+    # 백업 디렉토리 생성
+    os.makedirs(backup_dir, exist_ok=True)
+
+    # 백업 파일명 생성
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"chroma_db_backup_{timestamp}.tar.gz"
+    backup_path = os.path.join(backup_dir, backup_filename)
+
+    try:
+        print(f"   💾 DB 백업 생성 중...")
+        with tarfile.open(backup_path, "w:gz") as tar:
+            tar.add(db_path, arcname=os.path.basename(db_path))
+
+        backup_size = os.path.getsize(backup_path) / (1024 * 1024)  # MB
+        print(f"   ✅ 백업 완료: {backup_filename} ({backup_size:.1f}MB)")
+
+        # 오래된 백업 정리
+        cleanup_old_backups(backup_dir)
+
+        return backup_path
+    except Exception as e:
+        print(f"   ⚠️ 백업 실패: {e}")
+        return None
+
+
+def cleanup_old_backups(backup_dir: str = BACKUP_DIR, max_backups: int = MAX_BACKUPS):
+    """오래된 백업 파일 정리 (최신 N개만 유지)"""
+    if not os.path.exists(backup_dir):
+        return
+
+    # 백업 파일 목록 (타임스탬프 기준 정렬)
+    backups = sorted([
+        f for f in os.listdir(backup_dir)
+        if f.startswith("chroma_db_backup_") and f.endswith(".tar.gz")
+    ], reverse=True)
+
+    # 오래된 백업 삭제
+    for old_backup in backups[max_backups:]:
+        old_path = os.path.join(backup_dir, old_backup)
+        try:
+            os.remove(old_path)
+            print(f"   🗑️ 오래된 백업 삭제: {old_backup}")
+        except Exception:
+            pass
 
 
 def main():
@@ -134,6 +196,13 @@ def main():
     print(f"   {len(texts):,}개 텍스트 벡터 변환 중...")
     embeddings = model.encode(texts, show_progress_bar=True)
     print(f"   ✅ 벡터 변환 완료 (차원: {embeddings.shape[1]})")
+
+    # DB 백업 (append 모드가 아닐 때만)
+    if not args.append:
+        print("\n" + "="*60)
+        print("📦 기존 DB 백업")
+        print("="*60)
+        backup_database()
 
     # DB 저장
     print("\n" + "="*60)
